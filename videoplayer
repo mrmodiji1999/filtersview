@@ -1,0 +1,114 @@
+
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Flutter Video Player',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const VideoPlayerScreen(),
+    );
+  }
+}
+
+class VideoPlayerScreen extends StatefulWidget {
+  const VideoPlayerScreen({Key? key}) : super(key: key);
+
+  @override
+  _VideoPlayerScreenState createState() => _VideoPlayerScreenState();
+}
+
+class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+  final TextEditingController _urlController = TextEditingController();
+  VideoPlayerController? _videoPlayerController;
+  bool _isPlaying = false;
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _videoPlayerController?.dispose();
+    super.dispose();
+  }
+
+  void _initializeVideoPlayer(String url) async {
+    if (_videoPlayerController != null) {
+      await _videoPlayerController!.dispose();
+    }
+
+    setState(() {
+      _videoPlayerController = VideoPlayerController.network(url)
+        ..initialize().then((_) {
+          setState(() {});
+          _videoPlayerController!.play();
+          _isPlaying = true;
+        });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+_isPlaying?null:
+    _initializeVideoPlayer("https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_30MB.mp4");
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Flutter Video Player'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+           
+            const SizedBox(height: 16),
+            _videoPlayerController != null && _videoPlayerController!.value.isInitialized
+                ? AspectRatio(
+                    aspectRatio: _videoPlayerController!.value.aspectRatio,
+                    child: VideoPlayer(_videoPlayerController!),
+                  )
+                : const Text('Enter a valid video URL to play.'),
+            const SizedBox(height: 16),
+            if (_videoPlayerController != null && _videoPlayerController!.value.isInitialized)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                    onPressed: () {
+                      setState(() {
+                        if (_isPlaying) {
+                          _videoPlayerController!.pause();
+                        } else {
+                          _videoPlayerController!.play();
+                        }
+                        _isPlaying = !_isPlaying;
+                      });
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.stop),
+                    onPressed: () {
+                      setState(() {
+                        _videoPlayerController!.seekTo(Duration.zero);
+                        _videoPlayerController!.pause();
+                        _isPlaying = false;
+                      });
+                    },
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

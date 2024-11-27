@@ -1,0 +1,192 @@
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Miniplayer Video Example',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const VideoPlayScreen(),
+    );
+  }
+}
+
+class VideoPlayScreen extends StatefulWidget {
+  const VideoPlayScreen({Key? key}) : super(key: key);
+
+  @override
+  _VideoPlayScreenState createState() => _VideoPlayScreenState();
+}
+
+class _VideoPlayScreenState extends State<VideoPlayScreen> {
+  late VideoPlayerController _videoPlayerController;
+  bool _isMiniplayerVisible = true; // Track miniplayer visibility
+  bool _isPlaying = false; // Track play/pause state
+  final ValueNotifier<double> _playerExpandProgress = ValueNotifier(0);
+  double _miniplayerHeight = 120; // Initial height of miniplayer
+  double _maxHeight = 600; // Max height for full-screen
+
+  @override
+  void initState() {
+    super.initState();
+    _videoPlayerController = VideoPlayerController.network(
+      'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_2MB.mp4',
+    )
+      ..initialize().then((_) {
+        setState(() {});
+        _videoPlayerController.play();
+      });
+  }
+
+  @override
+  void dispose() {
+    _videoPlayerController.dispose();
+    super.dispose();
+  }
+
+  void _toggleMiniplayer() {
+    setState(() {
+      if (_isMiniplayerVisible) {
+        _videoPlayerController.play();
+        _isPlaying = true;
+      } else {
+        _videoPlayerController.pause();
+        _isPlaying = false;
+      }
+      _isMiniplayerVisible = !_isMiniplayerVisible;
+    });
+  }
+
+  void _togglePlayPause() {
+    setState(() {
+      if (_isPlaying) {
+        _videoPlayerController.pause();
+      } else {
+        _videoPlayerController.play();
+      }
+      _isPlaying = !_isPlaying;
+    });
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    // If dragging down, minimize the player
+    if (details.primaryDelta! > 0 && _miniplayerHeight > 120) {
+      setState(() {
+        _miniplayerHeight -= details.primaryDelta!; // Minimize height
+        if (_miniplayerHeight < 120) {
+          _miniplayerHeight = 120; // Set min height
+        }
+      });
+    }
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    // If dragged down to a certain threshold, minimize the player
+    if (_miniplayerHeight < 200) {
+      setState(() {
+        _isMiniplayerVisible = true;
+        _miniplayerHeight = 120;
+      });
+    } else {
+      setState(() {
+        _isMiniplayerVisible = false;
+        _miniplayerHeight = _maxHeight;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Miniplayer Video Example')),
+      body: Stack(
+        children: [
+          // Full-screen view
+          if (!_isMiniplayerVisible)
+            GestureDetector(
+              onVerticalDragUpdate: _onVerticalDragUpdate,
+              onVerticalDragEnd: _onVerticalDragEnd,
+              child: Center(
+                child: _videoPlayerController.value.isInitialized
+                    ? AspectRatio(
+                        aspectRatio: _videoPlayerController.value.aspectRatio,
+                        child: VideoPlayer(_videoPlayerController),
+                      )
+                    : const CircularProgressIndicator(), // Loading indicator while the video is initializing
+              ),
+            ),
+          // Miniplayer
+          if (_isMiniplayerVisible)
+            GestureDetector(
+              onTap: _toggleMiniplayer,
+              onVerticalDragUpdate: _onVerticalDragUpdate,
+              onVerticalDragEnd: _onVerticalDragEnd,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  width: MediaQuery.of(context).size.width,
+                  height: _miniplayerHeight,
+                  color: Colors.black,
+                  child: Column(
+                    children: [
+                      // Video thumbnail and controls
+                      Row(
+                        children: [
+                          // Thumbnail of the video in miniplayer
+                          Container(
+                            width: 120,
+                            height: 70,
+                            color: Colors.black,
+                            child: VideoPlayer(_videoPlayerController),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Now Playing: Big Buck Bunny',
+                              style: TextStyle(color: Colors.white, fontSize: 14),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              _isPlaying ? Icons.pause : Icons.play_arrow,
+                              color: Colors.white,
+                            ),
+                            onPressed: _togglePlayPause,
+                          ),
+                        ],
+                      ),
+                      // Seekbar to show video progress
+                      VideoProgressIndicator(
+                        _videoPlayerController,
+                        allowScrubbing: true,
+                        colors: const VideoProgressColors(
+                          playedColor: Colors.blue,
+                          bufferedColor: Colors.grey,
+                          backgroundColor: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _toggleMiniplayer,
+        child: Icon(
+          _isMiniplayerVisible ? Icons.fullscreen_exit : Icons.fullscreen,
+        ),
+      ),
+    );
+  }
+}
